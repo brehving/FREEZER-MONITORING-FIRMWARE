@@ -1,0 +1,39 @@
+import pandas as pd
+
+# Load Step 1 output
+df = pd.read_csv("phase3_step1_eev_output.csv")
+
+# Compressor RPM control logic
+def compressor_control(row):
+    sh = row["superheat"]
+
+    # Safety first
+    if row.get("vibration_anomaly", 0) == 1:
+        return -300, "VIBRATION_LIMIT"
+
+    if row.get("power_anomaly", 0) == 1 and sh < 8:
+        return -200, "INEFFICIENT_POWER_USE"
+
+    # Cooling demand
+    if sh > 12:
+        return +300, "INCREASE_COOLING"
+
+    if sh < 5:
+        return -200, "OVERCOOLING_RISK"
+
+    # ML-based refinement
+    if row.get("temperature_anomaly", 0) == 1 and sh > 10:
+        return +200, "TEMP_NOT_RECOVERING"
+
+    return 0, "HOLD"
+
+# Apply logic
+df[["compressor_rpm_cmd", "compressor_state"]] = df.apply(
+    compressor_control, axis=1, result_type="expand"
+)
+
+# Save output
+df.to_csv("phase3_step2_compressor_output.csv", index=False)
+
+print("✅ Phase 3 Step 2 completed")
+print("📁 Output file: phase3_step2_compressor_output.csv")
